@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
   Container,
   Typography,
@@ -13,8 +13,8 @@ import {
   IconButton,
   Select,
   MenuItem,
-  InputLabel,
   FormControl,
+  InputLabel,
 } from "@mui/material";
 import { Delete, Edit } from "@mui/icons-material";
 import { motion } from "framer-motion";
@@ -126,6 +126,57 @@ const Dashboard = () => {
     (total, expense) => total + expense.amount,
     0
   );
+  const handlePayment = async () => {
+    try {
+      const orderResponse = await axios.post(
+        "http://localhost:5000/api/payment/create-order"
+      );
+      console.log("Order created:", orderResponse.data);
+
+      const options = {
+        key: process.env.REACT_APP_RAZORPAY_KEY_ID, // Use environment variable
+        amount: orderResponse.data.amount,
+        currency: "INR",
+        name: "Expense Tracker Premium",
+        description: "Upgrade to Premium Features",
+        order_id: orderResponse.data.id,
+        handler: async (response) => {
+          try {
+            console.log("Payment response:", response);
+            const verifyResponse = await axios.post(
+              "http://localhost:5000/api/payment/verify",
+              response
+            );
+            if (verifyResponse.data.status === "ok") {
+              alert("Payment successful");
+              // You can add logic here to update user's premium status
+            } else {
+              alert(
+                "Payment verification failed: " + verifyResponse.data.message
+              );
+            }
+          } catch (error) {
+            console.error("Verification error:", error);
+            alert("Payment verification failed: " + error.message);
+          }
+        },
+        prefill: {
+          name: "Abhishek Kumar",
+          email: "abhi121deep@gmail.com",
+          contact: "9570451670",
+        },
+        theme: {
+          color: "#3399cc",
+        },
+      };
+
+      const rzp1 = new window.Razorpay(options);
+      rzp1.open();
+    } catch (error) {
+      console.error("Payment error:", error);
+      alert("Payment initiation failed: " + error.message);
+    }
+  };
 
   return (
     <Container maxWidth="md">
@@ -214,6 +265,9 @@ const Dashboard = () => {
           </Grid>
         </Box>
         <Box>
+          <Button variant="contained" color="primary" onClick={handlePayment}>
+            Get Premium Features
+          </Button>
           {expenses.length === 0 ? (
             <Typography>No expenses found.</Typography>
           ) : (
