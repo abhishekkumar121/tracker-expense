@@ -2,16 +2,31 @@ const express = require("express");
 const router = express.Router();
 const Expense = require("../models/Expense");
 const authMiddleware = require("../middleware/auth");
+const isPremiumMiddleware = require("../middleware/isPremium");
+const json2csv = require("json2csv").parse;
+const fs = require("fs");
+const path = require("path");
 
 // @route   GET /api/expenses
 // @desc    Get all expenses for a user
 // @access  Private
 router.get("/", authMiddleware, async (req, res) => {
   try {
-    const expenses = await Expense.find({ user: req.user.id }).sort({
-      date: -1,
+    const page = parseInt(req.query.page) || 1; // Default to page 1 if no page is provided
+    const limit = parseInt(req.query.limit) || 5; // Default limit to 5 items per page
+    const expenses = await Expense.find({ user: req.user.id })
+      .sort({ date: -1 })
+      .skip((page - 1) * limit) // Skip based on page
+      .limit(limit); // Limit the results
+    // res.json(expenses);
+    const totalExpenses = await Expense.countDocuments({ user: req.user.id });
+
+    res.json({
+      expenses,
+      currentPage: page,
+      totalPages: Math.ceil(totalExpenses / limit),
+      totalExpenses,
     });
-    res.json(expenses);
   } catch (err) {
     console.error(err.message);
     res.status(500).send("Server error");
@@ -103,6 +118,42 @@ router.delete("/:id", authMiddleware, async (req, res) => {
     if (err.kind === "ObjectId") {
       return res.status(404).json({ msg: "Expense not found" });
     }
+    res.status(500).send("Server error");
+  }
+});
+// @route   GET /api/expenses/download
+// @desc    Download all expenses as CSV (Available for all users)
+// @access  Private
+router.get("/download", authMiddleware, async (req, res) => {
+  try {
+    const expenses = await Expense.find({ user: req.user.id }).sort({
+      date: -1,
+    });
+
+    if (expenses.length === 0) {
+      return res.status(404).json({ msg: "No expenses found" });
+    }
+
+    const csv = json2csv(expenses, {
+      fields: ["description", "amount", "category", "date"],
+    });
+
+    const filePath = path.join(
+      __dirname,
+      "../downloads",
+      `${req.user.id}_expenses.csv`
+    );
+    fs.writeFileSync(filePath, csv);
+
+    res.download(filePath, (err) => {
+      if (err) {
+        console.error(err);
+        res.status(500).send("Server error");
+      }
+      fs.unlinkSync(filePath); // Delete the file after download
+    });
+  } catch (err) {
+    console.error(err.message);
     res.status(500).send("Server error");
   }
 });

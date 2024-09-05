@@ -2,7 +2,7 @@ const express = require("express");
 const connectDB = require("./config/db");
 const cors = require("cors");
 const dotenv = require("dotenv");
-const Razorpay = require("razorpay");
+// const Razorpay = require("razorpay");
 
 // Load environment variables
 dotenv.config();

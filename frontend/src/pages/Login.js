@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import axios from "axios";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { TextField, Button, Container, Typography, Box } from "@mui/material";
 import { motion } from "framer-motion";
 
@@ -73,6 +73,14 @@ const Login = () => {
               Login
             </Button>
           </form>
+          <Link
+            to="/forgot-password"
+            component="button"
+            variant="body2"
+            sx={{ mt: 2, display: "block" }}
+          >
+            Forgot Password?
+          </Link>
           <Button
             onClick={() => navigate("/register")}
             color="secondary"

@@ -22,6 +22,8 @@ import { motion } from "framer-motion";
 const Dashboard = () => {
   const navigate = useNavigate();
   const [expenses, setExpenses] = useState([]);
+  const [user, setUser] = useState({ isPremium: false }); // Mock user, change as needed
+
   const [formData, setFormData] = useState({
     description: "",
     amount: "",
@@ -30,19 +32,45 @@ const Dashboard = () => {
   const [editId, setEditId] = useState(null);
 
   const { description, amount, category } = formData;
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const limit = 5; // Number of expenses per page
 
-  const fetchExpenses = async () => {
+  // const fetchExpenses = async () => {
+  //   const token = localStorage.getItem("token");
+  //   if (!token) {
+  //     navigate("/login");
+  //   }
+  //   try {
+  //     const res = await axios.get("http://localhost:5000/api/expenses/", {
+  //       headers: {
+  //         Authorization: token,
+  //       },
+  //     });
+  //     setExpenses(res.data);
+  //   } catch (err) {
+  //     console.error(err);
+  //     alert("Error fetching expenses");
+  //   }
+  // };
+  const fetchExpenses = async (page = 1) => {
     const token = localStorage.getItem("token");
     if (!token) {
       navigate("/login");
     }
     try {
-      const res = await axios.get("http://localhost:5000/api/expenses", {
-        headers: {
-          Authorization: token,
-        },
-      });
-      setExpenses(res.data);
+      const res = await axios.get(
+        `http://localhost:5000/api/expenses?page=${page}&limit=${limit}`,
+        {
+          headers: {
+            Authorization: token,
+          },
+        }
+      );
+
+      setExpenses(res.data.expenses);
+      setCurrentPage(res.data.currentPage);
+      setTotalPages(res.data.totalPages);
     } catch (err) {
       console.error(err);
       alert("Error fetching expenses");
@@ -52,6 +80,18 @@ const Dashboard = () => {
   useEffect(() => {
     fetchExpenses();
   }, []);
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      fetchExpenses(currentPage - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      fetchExpenses(currentPage + 1);
+    }
+  };
 
   const onChange = (e) =>
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -77,7 +117,7 @@ const Dashboard = () => {
       } else {
         // Add new expense
         const res = await axios.post(
-          "http://localhost:5000/api/expenses",
+          "http://localhost:5000/api/expenses/",
           { description, amount, category },
           { headers: { Authorization: token } }
         );
@@ -126,6 +166,8 @@ const Dashboard = () => {
     (total, expense) => total + expense.amount,
     0
   );
+
+  //handle payments
   const handlePayment = async () => {
     try {
       const orderResponse = await axios.post(
@@ -142,14 +184,13 @@ const Dashboard = () => {
         order_id: orderResponse.data.id,
         handler: async (response) => {
           try {
-            console.log("Payment response:", response);
             const verifyResponse = await axios.post(
               "http://localhost:5000/api/payment/verify",
               response
             );
             if (verifyResponse.data.status === "ok") {
               alert("Payment successful");
-              // You can add logic here to update user's premium status
+              setUser({ ...user, isPremium: true }); // Update the user state to premium
             } else {
               alert(
                 "Payment verification failed: " + verifyResponse.data.message
@@ -161,9 +202,9 @@ const Dashboard = () => {
           }
         },
         prefill: {
-          name: "Abhishek Kumar",
-          email: "abhi121deep@gmail.com",
-          contact: "9570451670",
+          name: "Your Name",
+          email: "youremail@example.com",
+          contact: "9999999999",
         },
         theme: {
           color: "#3399cc",
@@ -175,6 +216,35 @@ const Dashboard = () => {
     } catch (error) {
       console.error("Payment error:", error);
       alert("Payment initiation failed: " + error.message);
+    }
+  };
+
+  //download expenses
+  const handleDownload = async () => {
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      navigate("/login");
+    }
+    try {
+      const res = await axios.get(
+        "http://localhost:5000/api/expenses/download",
+        {
+          headers: { Authorization: token },
+          responseType: "blob", // Important for downloading files
+        }
+      );
+
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", "expenses.csv");
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (err) {
+      console.error(err);
+      alert("Error downloading expenses");
     }
   };
 
@@ -198,7 +268,6 @@ const Dashboard = () => {
             Logout
           </Button>
         </Box>
-
         {/* Display total expense */}
         <Box sx={{ mb: 4 }}>
           <Typography variant="h5">
@@ -268,6 +337,9 @@ const Dashboard = () => {
           <Button variant="contained" color="primary" onClick={handlePayment}>
             Get Premium Features
           </Button>
+          <Button variant="contained" color="primary" onClick={handleDownload}>
+            Download Expenses
+          </Button>
           {expenses.length === 0 ? (
             <Typography>No expenses found.</Typography>
           ) : (
@@ -304,6 +376,27 @@ const Dashboard = () => {
               </Card>
             ))
           )}
+        </Box>
+        <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handlePreviousPage}
+            disabled={currentPage === 1}
+          >
+            Previous
+          </Button>
+          <Typography variant="h6" sx={{ mx: 2 }}>
+            Page {currentPage} of {totalPages}
+          </Typography>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleNextPage}
+            disabled={currentPage === totalPages}
+          >
+            Next
+          </Button>
         </Box>
       </motion.div>
     </Container>
