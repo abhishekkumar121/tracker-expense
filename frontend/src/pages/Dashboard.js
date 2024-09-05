@@ -34,25 +34,33 @@ const Dashboard = () => {
   const { description, amount, category } = formData;
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const limit = 5; // Number of expenses per page
 
-  // const fetchExpenses = async () => {
-  //   const token = localStorage.getItem("token");
-  //   if (!token) {
-  //     navigate("/login");
-  //   }
-  //   try {
-  //     const res = await axios.get("http://localhost:5000/api/expenses/", {
-  //       headers: {
-  //         Authorization: token,
-  //       },
-  //     });
-  //     setExpenses(res.data);
-  //   } catch (err) {
-  //     console.error(err);
-  //     alert("Error fetching expenses");
-  //   }
-  // };
+  // Load itemsPerPage from local storage or default to 10
+  const [itemsPerPage, setItemsPerPage] = useState(() => {
+    return localStorage.getItem("itemsPerPage")
+      ? parseInt(localStorage.getItem("itemsPerPage"))
+      : 10;
+  });
+
+  // Pagination: Calculate paginated expenses
+  const indexOfLastExpense = currentPage * itemsPerPage;
+  const indexOfFirstExpense = indexOfLastExpense - itemsPerPage;
+  const currentExpenses = expenses.slice(
+    indexOfFirstExpense,
+    indexOfLastExpense
+  );
+
+  const handleItemsPerPageChange = (e) => {
+    const value = parseInt(e.target.value);
+    setItemsPerPage(value);
+    setCurrentPage(1); // Reset to the first page
+    localStorage.setItem("itemsPerPage", value); // Save to local storage
+  };
+
+  const handlePageChange = (event, value) => {
+    setCurrentPage(value);
+  };
+
   const fetchExpenses = async (page = 1) => {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -60,17 +68,16 @@ const Dashboard = () => {
     }
     try {
       const res = await axios.get(
-        `http://localhost:5000/api/expenses?page=${page}&limit=${limit}`,
+        `http://localhost:5000/api/expenses?page=${page}&limit=${itemsPerPage}`, // Use both page and limit
         {
           headers: {
             Authorization: token,
           },
         }
       );
-
       setExpenses(res.data.expenses);
-      setCurrentPage(res.data.currentPage);
-      setTotalPages(res.data.totalPages);
+      setCurrentPage(res.data.currentPage); // Update the current page
+      setTotalPages(res.data.totalPages); // Update total pages
     } catch (err) {
       console.error(err);
       alert("Error fetching expenses");
@@ -78,8 +85,8 @@ const Dashboard = () => {
   };
 
   useEffect(() => {
-    fetchExpenses();
-  }, []);
+    fetchExpenses(currentPage); // Fetch for the current page
+  }, [itemsPerPage, currentPage]);
 
   const handlePreviousPage = () => {
     if (currentPage > 1) {
@@ -340,6 +347,17 @@ const Dashboard = () => {
           <Button variant="contained" color="primary" onClick={handleDownload}>
             Download Expenses
           </Button>
+          <Select
+            value={itemsPerPage}
+            onChange={handleItemsPerPageChange}
+            displayEmpty
+          >
+            <MenuItem value={5}>5</MenuItem>
+            <MenuItem value={10}>10</MenuItem>
+            <MenuItem value={20}>20</MenuItem>
+            <MenuItem value={30}>30</MenuItem>
+            <MenuItem value={40}>40</MenuItem>
+          </Select>
           {expenses.length === 0 ? (
             <Typography>No expenses found.</Typography>
           ) : (
